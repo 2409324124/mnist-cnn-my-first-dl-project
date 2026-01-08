@@ -1,9 +1,8 @@
 # 首先导入必要的库
-import matplotlib.pyplot as plt  # 添加这一行
-
-# 然后设置中文字体
-plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei']  # 优先用 Windows 自带中文字体
-plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+import matplotlib.pyplot as plt
+# 添加这一行：支持中文显示（解决字体警告）
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei']  # Windows 自带中文字体
+plt.rcParams['axes.unicode_minus'] = False
 
 import torch
 import torch.nn as nn
@@ -12,10 +11,11 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
+
+print("开始导入模块...")
 
 # 数据加载（完整，包括训练集和测试集）
 transform = transforms.Compose([
@@ -27,7 +27,7 @@ print("加载训练集和测试集...")
 train_dataset = torchvision.datasets.MNIST(
     root='./data', 
     train=True, 
-    download=False,  # 如果文件已手动放好，用 False；否则 True
+    download=False,  # 已手动放好文件，用 False
     transform=transform
 )
 test_dataset = torchvision.datasets.MNIST(
@@ -37,16 +37,15 @@ test_dataset = torchvision.datasets.MNIST(
     transform=transform
 )
 
-# 训练集加载器（关键！用于训练循环）
+# 关键：定义 train_loader（训练用）
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
-# 测试集加载器（用于评估）
+# 测试用 loader
 test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
 print("数据集加载完成！")
 
-
-# 模型
+# 模型定义
 class SimpleCNN(nn.Module):
     def __init__(self):
         super().__init__()
@@ -71,16 +70,17 @@ print(f"使用设备: {device}")
 
 model = SimpleCNN().to(device)
 
-# 训练（快速 5 epoch）
+# 损失函数和优化器
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
+# 训练（5 个 epoch）
 print("开始训练...")
 train_losses = []
 for epoch in range(5):
     model.train()
     running_loss = 0.0
-    for images, labels in train_loader:  # 注意：需要 train_loader，如果没有请先定义
+    for images, labels in train_loader:
         images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
         outputs = model(images)
@@ -88,13 +88,14 @@ for epoch in range(5):
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
+    
     avg_loss = running_loss / len(train_loader)
     train_losses.append(avg_loss)
     print(f"第 {epoch+1} 轮完成，平均损失: {avg_loss:.4f}")
 
 print("训练完成！")
 
-# 测试 + 收集所有预测（关键，用于混淆矩阵）
+# 测试 + 收集预测结果（用于混淆矩阵）
 model.eval()
 all_preds = []
 all_labels = []
@@ -109,7 +110,16 @@ with torch.no_grad():
 accuracy = 100 * sum(p == l for p, l in zip(all_preds, all_labels)) / len(all_labels)
 print(f"测试准确率: {accuracy:.2f}%")
 
-# 漂亮混淆矩阵（seaborn）
+# 绘制 Loss 曲线
+plt.figure(figsize=(8, 5))
+plt.plot(range(1, 6), train_losses, marker='o', color='b')
+plt.title('训练 Loss 曲线')
+plt.xlabel('轮次 (Epoch)')
+plt.ylabel('平均损失 (Loss)')
+plt.grid(True)
+plt.show()
+
+# 漂亮混淆矩阵
 print("\n绘制混淆矩阵...")
 cm = confusion_matrix(all_labels, all_preds)
 plt.figure(figsize=(10, 8))
@@ -119,4 +129,4 @@ plt.xlabel('预测标签')
 plt.ylabel('真实标签')
 plt.show()
 
-print("可视化完成！")
+print("所有可视化完成！")
