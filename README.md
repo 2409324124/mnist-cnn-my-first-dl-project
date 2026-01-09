@@ -11,10 +11,10 @@
 ## 训练结果截图
 
 ### Loss 曲线（5 个 epoch，快速收敛）
-![Loss 曲线](fig1)
+![Loss 曲线](images/fig1.png)
 
 ### 混淆矩阵（对角线极亮，准确率 99%+）
-![混淆矩阵](fig2)
+![混淆矩阵](images/fig2.png)
 
 ## 环境
 - Python 3.11
