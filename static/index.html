@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MNIST 手写数字识别</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0f14;
+      --surface:  #161922;
+      --border:   #252b38;
+      --accent:   #6c63ff;
+      --accent2:  #48cfad;
+      --text:     #e8eaf0;
+      --muted:    #6b7280;
+      --radius:   16px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+    header p {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    /* ── Canvas Panel ── */
+    .canvas-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .canvas-panel h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    #canvas {
+      display: block;
+      border-radius: 12px;
+      background: #000;
+      cursor: crosshair;
+      touch-action: none;
+      box-shadow: 0 0 0 2px var(--border), 0 8px 32px rgba(0,0,0,0.5);
+      transition: box-shadow 0.2s;
+    }
+    #canvas:hover {
+      box-shadow: 0 0 0 2px var(--accent), 0 8px 32px rgba(108,99,255,0.25);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+    button {
+      flex: 1;
+      padding: 11px 0;
+      border-radius: 10px;
+      border: none;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.97); }
+
+    #btn-predict {
+      background: linear-gradient(135deg, var(--accent), #9d97ff);
+      color: #fff;
+    }
+    #btn-clear {
+      background: var(--border);
+      color: var(--muted);
+    }
+    #btn-clear:hover { color: var(--text); }
+
+    /* ── Result Panel ── */
+    .result-panel {
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Big prediction display */
+    .big-pred {
+      text-align: center;
+      padding: 20px 0;
+    }
+    .big-pred .label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .big-pred .digit {
+      font-size: 5rem;
+      font-weight: 700;
+      line-height: 1;
+      margin: 8px 0 4px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      transition: all 0.3s ease;
+    }
+    .big-pred .conf {
+      font-size: 0.9rem;
+      color: var(--accent2);
+      font-weight: 600;
+    }
+
+    /* Probability bars */
+    .bars-title {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+    .bars { display: flex; flex-direction: column; gap: 6px; }
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+    }
+    .bar-row .digit-label {
+      width: 16px;
+      text-align: right;
+      color: var(--muted);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      width: 0%;
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .bar-row.active .digit-label { color: var(--accent2); }
+    .bar-row.active .bar-fill   { background: linear-gradient(90deg, var(--accent2), #a8edda); }
+
+    .bar-pct {
+      width: 36px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    /* Status */
+    #status {
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--muted);
+      min-height: 20px;
+    }
+    #status.error { color: #f87171; }
+
+    /* Brush size */
+    .brush-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      width: 100%;
+    }
+    .brush-row input[type=range] {
+      flex: 1;
+      accent-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🖊️ MNIST 手写数字识别</h1>
+  <p>在画布上写一个数字，点击 <strong>识别</strong> 或松手后自动预测</p>
+</header>
+
+<div class="layout">
+
+  <!-- 左：画布 -->
+  <div class="card canvas-panel">
+    <h2>绘图区</h2>
+    <canvas id="canvas" width="280" height="280"></canvas>
+
+    <div class="brush-row">
+      <span>笔刷</span>
+      <input type="range" id="brush" min="8" max="40" value="20" />
+      <span id="brush-val">20px</span>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-predict">识别</button>
+      <button id="btn-clear">清空</button>
+    </div>
+    <div id="status">在上方画布手写数字…</div>
+  </div>
+
+  <!-- 右：结果 -->
+  <div class="card result-panel">
+
+    <!-- 大字显示 -->
+    <div class="big-pred">
+      <div class="label">识别结果</div>
+      <div class="digit" id="pred-digit">?</div>
+      <div class="conf"  id="pred-conf">—</div>
+    </div>
+
+    <!-- 概率条 -->
+    <div>
+      <div class="bars-title">各数字概率</div>
+      <div class="bars" id="bars"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── 初始化条形图 ───────────────────────────────────────────────────────────
+const barsEl = document.getElementById("bars");
+const barFills = [], barPcts = [], barRows = [];
+for (let i = 0; i < 10; i++) {
+  const row  = document.createElement("div");
+  row.className = "bar-row";
+  row.innerHTML = `
+    <span class="digit-label">${i}</span>
+    <div class="bar-track"><div class="bar-fill" id="bar-fill-${i}"></div></div>
+    <span class="bar-pct"  id="bar-pct-${i}">0%</span>
+  `;
+  barsEl.appendChild(row);
+  barRows.push(row);
+  barFills.push(document.getElementById(`bar-fill-${i}`));
+  barPcts.push(document.getElementById(`bar-pct-${i}`));
+}
+
+// ── Canvas 绘图 ────────────────────────────────────────────────────────────
+const canvas = document.getElementById("canvas");
+const ctx    = canvas.getContext("2d");
+let drawing  = false;
+let hasDrawn = false;
+let autoTimer = null;
+
+ctx.fillStyle = "#000";
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+function brushSize() { return parseInt(document.getElementById("brush").value); }
+
+function getPos(e) {
+  const r = canvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - r.left, y: src.clientY - r.top };
+}
+
+function startDraw(e) {
+  e.preventDefault();
+  drawing = true;
+  const p = getPos(e);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+}
+
+function draw(e) {
+  e.preventDefault();
+  if (!drawing) return;
+  hasDrawn = true;
+  const p = getPos(e);
+  ctx.lineWidth   = brushSize();
+  ctx.lineCap     = "round";
+  ctx.lineJoin    = "round";
+  ctx.strokeStyle = "#fff";
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+
+  // 自动预测（停笔后 600ms）
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(doPredict, 600);
+}
+
+function endDraw(e) {
+  e.preventDefault();
+  drawing = false;
+}
+
+canvas.addEventListener("mousedown",  startDraw);
+canvas.addEventListener("mousemove",  draw);
+canvas.addEventListener("mouseup",    endDraw);
+canvas.addEventListener("mouseleave", endDraw);
+canvas.addEventListener("touchstart", startDraw, { passive: false });
+canvas.addEventListener("touchmove",  draw,      { passive: false });
+canvas.addEventListener("touchend",   endDraw,   { passive: false });
+
+// 笔刷大小显示
+document.getElementById("brush").addEventListener("input", function() {
+  document.getElementById("brush-val").textContent = this.value + "px";
+});
+
+// 清空
+document.getElementById("btn-clear").addEventListener("click", () => {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  hasDrawn = false;
+  clearTimeout(autoTimer);
+  resetResult();
+  setStatus("画布已清空，重新手写…");
+});
+
+// 识别按钮
+document.getElementById("btn-predict").addEventListener("click", doPredict);
+
+// ── 重置结果 ──────────────────────────────────────────────────────────────
+function resetResult() {
+  document.getElementById("pred-digit").textContent = "?";
+  document.getElementById("pred-conf").textContent  = "—";
+  barRows.forEach((r, i) => {
+    r.classList.remove("active");
+    barFills[i].style.width = "0%";
+    barPcts[i].textContent  = "0%";
+  });
+}
+
+// ── 状态提示 ──────────────────────────────────────────────────────────────
+function setStatus(msg, isError = false) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className   = isError ? "error" : "";
+}
+
+// ── 发送预测请求 ──────────────────────────────────────────────────────────
+async function doPredict() {
+  if (!hasDrawn) { setStatus("请先在画布上写一个数字…"); return; }
+  setStatus("识别中…");
+
+  const dataURL = canvas.toDataURL("image/png");
+  try {
+    const resp = await fetch("/predict", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ image: dataURL })
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    showResult(data);
+    setStatus("识别完成 ✓");
+  } catch (err) {
+    setStatus("请求失败：" + err.message, true);
+  }
+}
+
+// ── 显示结果 ──────────────────────────────────────────────────────────────
+function showResult(data) {
+  const pred  = data.prediction;
+  const probs = data.probabilities;
+
+  document.getElementById("pred-digit").textContent = pred;
+  document.getElementById("pred-conf").textContent  =
+    (probs[pred] * 100).toFixed(1) + "% 置信度";
+
+  for (let i = 0; i < 10; i++) {
+    const p = (probs[String(i)] * 100);
+    barFills[i].style.width = p.toFixed(1) + "%";
+    barPcts[i].textContent  = p.toFixed(1) + "%";
+    barRows[i].classList.toggle("active", i === pred);
+  }
+}
+</script>
+</body>
+</html>

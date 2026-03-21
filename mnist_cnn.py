@@ -79,6 +79,10 @@ for epoch in range(num_epochs):
 
 print("7. 训练完成！")
 
+# 保存模型
+torch.save(model.state_dict(), 'model.pth')
+print("   模型已保存到 model.pth")
+
 # 测试
 model.eval()
 correct = 0
